@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: {{ include "devops-demo.fullname" . }}
+labels:
+app: {{ include "devops-demo.name" . }}
+spec:
+replicas: {{ .Values.replicaCount }}
+selector:
+matchLabels:
+app: {{ include "devops-demo.name" . }}
+template:
+metadata:
+labels:
+app: {{ include "devops-demo.name" . }}
+spec:
+containers:
+- name: app
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+ports:
+- containerPort: 3000
+env:
+- name: DATABASE_URL
+valueFrom:
+secretKeyRef:
+name: db-secret
+key: DATABASE_URL
