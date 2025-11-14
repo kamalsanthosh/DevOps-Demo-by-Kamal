@@ -5,7 +5,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'git@github.com:<your-username>/<repo>.git',
+                    url:  'git@github.com:kamalsanthosh/DevOps-Demo-by-Kamal.git'
                     credentialsId: 'github-ssh'
             }
         }
