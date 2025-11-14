@@ -1,0 +1,79 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION = 'us-east-1'
+    AWS_ACCOUNT_ID = '466329717384'
+    IMAGE_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/devops-demo-app"
+    KUBE_CLUSTER = 'dev-cluster'
+    KUBE_NAMESPACE = 'default'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        sshagent (credentials: ['github-ssh']) {
+          git url: 'git@github.com:kamalsanthosh/DevOps-Demo-by-Kamal.git', branch: 'main'
+        }
+      }
+    }
+
+    stage('Unit Test') {
+      steps {
+        dir('app/service') {
+          sh 'npm ci'
+          // Add real unit tests if you have them:
+          // sh 'npm test'
+        }
+      }
+    }
+
+    stage('Build & Push Image') {
+      steps {
+        script {
+          // Build & push — uses instance profile if present, otherwise requires AWS creds in env
+          sh '''
+            ./scripts/build-and-push.sh ${us-east-1} ${466329717384} ${GIT_COMMIT}
+          '''
+          IMAGE = "${IMAGE_REPO}:${GIT_COMMIT}"
+          echo "Pushed image: ${IMAGE}"
+          env.IMAGE = IMAGE
+        }
+      }
+    }
+
+    stage('Update Kubeconfig') {
+      steps {
+        script {
+          // Requires AWS CLI + eksctl/kubectl installed and IAM rights
+          sh """
+            aws eks update-kubeconfig --region ${us-east-1} --name ${dev-cluster}
+            kubectl get nodes --no-headers
+          """
+        }
+      }
+    }
+
+    stage('Deploy to EKS') {
+      steps {
+        script {
+          // If you use plain k8s manifests and want to update image:
+          sh """
+            kubectl -n ${default} set image deployment/devops-demo app=${IMAGE_REPO}:${GIT_COMMIT} --record || kubectl -n ${default} apply -f k8s/base
+            kubectl -n ${default} rollout status deployment/devops-demo --timeout=120s
+          """
+        }
+      }
+    }
+
+  } // stages
+
+  post {
+    success {
+      echo "Pipeline completed successfully."
+    }
+    failure {
+      echo "Pipeline failed."
+    }
+  }
+}
