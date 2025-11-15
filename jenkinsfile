@@ -1,0 +1,15 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Clone') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-https-token', usernameVariable: 'USER', passwordVariable: 'TOKEN')]) {
+                    sh """
+                      git clone https://${USER}:${TOKEN}@github.com/your-org/your-repo.git
+                    """
+                }
+            }
+        }
+    }
+}
